@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}{{ device.name }} - Details{% endblock %}
+
+{% block content %}
+<div class="device-detail-container">
+    <h1>{{ device.name }}</h1>
+    <div class="device-info">
+        <p><strong>ID:</strong> {{ device.device_id }}</p>
+        <p><strong>Type:</strong> {{ device.type }}</p>
+        <p><strong>Location:</strong> {{ device.location|default:"Not specified" }}</p>
+        <p><strong>Status:</strong> {% if device.is_active %}Active{% else %}Inactive{% endif %}</p>
+        <p><strong>Last seen:</strong> {{ device.last_seen|default:"Never" }}</p>
+    </div>
+    
+    <div class="sensor-data">
+        <h2>Current Readings</h2>
+        {% if latest_reading %}
+        <div class="latest-readings">
+            {% if latest_reading.temperature is not None %}
+            <div class="reading">
+                <h3>Temperature</h3>
+                <p class="value">{{ latest_reading.temperature }}°C</p>
+            </div>
+            {% endif %}
+            
+            {% if latest_reading.humidity is not None %}
+            <div class="reading">
+                <h3>Humidity</h3>
+                <p class="value">{{ latest_reading.humidity }}%</p>
+            </div>
+            {% endif %}
+            
+            {% if latest_reading.pressure is not None %}
+            <div class="reading">
+                <h3>Pressure</h3>
+                <p class="value">{{ latest_reading.pressure }} hPa</p>
+            </div>
+            {% endif %}
+            
+            {% if latest_reading.voltage is not None %}
+            <div class="reading">
+                <h3>Voltage</h3>
+                <p class="value">{{ latest_reading.voltage }} V</p>
+            </div>
+            {% endif %}
+            
+            <p class="timestamp">As of {{ latest_reading.timestamp }}</p>
+        </div>
+        {% else %}
+        <p>No readings available for this device.</p>
+        {% endif %}
+    </div>
+    
+    <div class="charts">
+        <h2>Historical Data</h2>
+        <div id="temperature-chart" class="chart"></div>
+        <div id="humidity-chart" class="chart"></div>
+    </div>
+</div>
+
+<!-- Real-time updates via WebSocket -->
+<script>
+    const deviceId = "{{ device.device_id }}";
+    let currentDeviceId = deviceId;
+    
+    // Connect to WebSocket
+    const deviceSocket = new WebSocket(
+        'ws://' + window.location.host + '/ws/devices/'
+    );
+    
+    deviceSocket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        if (data.device_id === deviceId) {
+            updateRealTimeData(data);
+        }
+    };
+    
+    function updateRealTimeData(data) {
+        // Update the current readings section with real-time data
+        const readingsContainer = document.querySelector('.latest-readings');
+        if (readingsContainer) {
+            // Update temperature
+            if (data.temperature !== undefined) {
+                const tempElement = readingsContainer.querySelector('.reading:nth-child(1) .value');
+                if (tempElement) {
+                    tempElement.textContent = data.temperature + '°C';
+                }
+            }
+            
+            // Update humidity
+            if (data.humidity !== undefined) {
+                const humElement = readingsContainer.querySelector('.reading:nth-child(2) .value');
+                if (humElement) {
+                    humElement.textContent = data.humidity + '%';
+                }
+            }
+            
+            // Update timestamp
+            const timestampElement = readingsContainer.querySelector('.timestamp');
+            if (timestampElement) {
+                timestampElement.textContent = 'As of ' + new Date(data.timestamp).toLocaleString();
+            }
+        }
+    }
+</script>
+{% endblock %}
